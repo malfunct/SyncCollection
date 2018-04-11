@@ -9,6 +9,9 @@
 *.userosscache
 *.sln.docstates
 
+#Visual studio 2017 db
+/.vs/
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

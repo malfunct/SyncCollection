@@ -13,7 +13,7 @@ namespace SyncCollection
     class Program
     {
         const string Collection = "apple_ii_library_4am";
-        const string Rows = "2000";
+        const string Rows = "30000";
 
         static void Main(string[] args)
         {
@@ -171,7 +171,7 @@ namespace SyncCollection
         private static async Task<Dictionary<string, DateTime>> GetSearchResults(string collection)
         {
             var url =
-                $"https://archive.org/advancedsearch.php?q=collection%3A{collection}&fl%5B%5D=identifier&fl%5B%5D=oai_updatedate&sort%5B%5D=identifier+asc&sort%5B%5D=&sort%5B%5D=&rows={Rows}&page=1&output=json";
+                $"https://archive.org/advancedsearch.php?q=collection%3A{collection}&fl%5B%5D=identifier&fl%5B%5D=oai_updatedate&sort%5B%5D=identifier+asc&sort%5B%5D=&sort%5B%5D=&rows={Rows}&output=json";
 
             var httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Accept.Clear();

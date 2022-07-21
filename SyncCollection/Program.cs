@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,6 +6,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace SyncCollection
 {
@@ -18,22 +18,29 @@ namespace SyncCollection
         static void Main(string[] args)
         {
             string collection = Collection;
-            if (args.Length > 0)
-            {
-                collection = args[0];
-            }
-            else
+            string rows = Rows;
+
+            if (args.Length == 0)
             {
                 Console.WriteLine($"Using default collection {collection}");
             }
+            else if (args.Length == 1)
+            {
+                collection = args[0];
+            }
+            else if (args.Length >= 2)
+            {
+                rows = args[0];
+                collection = args[1];
+            }
 
-            var task = MainAsync(collection);
+            var task = MainAsync(collection, rows);
             task.Wait();
         }
 
-        static async Task MainAsync(string collection)
+        static async Task MainAsync(string collection, string rows)
         {
-            var searchResults = await GetSearchResults(collection);
+            var searchResults = await GetSearchResults(collection, rows);
 
             var localFileList = GetListOfAlreadyDownloadedFiles(collection);
 
@@ -78,8 +85,8 @@ namespace SyncCollection
 
                         var url = $"{resourceBase}/{indicatorToDownload}";
 
-                        Console.WriteLine("Downloading {0}", currentlyDownloading);
-                        Console.WriteLine("Downloading from {0}", url);
+                        Console.WriteLine($"Downloading {currentlyDownloading}");
+                        Console.WriteLine($"Downloading from {url}");
 
                         bool success = false;
                         try
@@ -91,7 +98,7 @@ namespace SyncCollection
                         {
                             // Just skip webexceptions and clean up so we can
                             // download as much of the collection as possible
-                            Console.WriteLine("Error while downloading {0}", e.Message);
+                            Console.WriteLine($"Error while downloading {e.Message}");
 
                             // delete failed download
                             if (File.Exists(currentlyDownloading))
@@ -115,7 +122,7 @@ namespace SyncCollection
             }
             catch (Exception exc)
             {
-                Console.WriteLine("Error while downloading {0}", exc.Message);
+                Console.WriteLine($"Error while downloading {exc.Message}");
             }
             finally
             {
@@ -168,10 +175,10 @@ namespace SyncCollection
             return localFileList;
         }
 
-        private static async Task<Dictionary<string, DateTime>> GetSearchResults(string collection)
+        private static async Task<Dictionary<string, DateTime>> GetSearchResults(string collection, string rows)
         {
             var url =
-                $"https://archive.org/advancedsearch.php?q=collection%3A{collection}&fl%5B%5D=identifier&fl%5B%5D=oai_updatedate&sort%5B%5D=identifier+asc&sort%5B%5D=&sort%5B%5D=&rows={Rows}&output=json";
+                $"https://archive.org/advancedsearch.php?q=collection%3A{collection}&fl%5B%5D=identifier&fl%5B%5D=oai_updatedate&sort%5B%5D=identifier+asc&sort%5B%5D=&sort%5B%5D=&rows={rows}&output=json";
 
             var httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Accept.Clear();
@@ -181,8 +188,7 @@ namespace SyncCollection
 
             if (!response.IsSuccessStatusCode)
             {
-                Console.WriteLine("Request for collection list failed with the error: ({0}) {1}", response.StatusCode,
-                    response.ReasonPhrase);
+                Console.WriteLine($"Request for collection list failed with the error: ({response.StatusCode}) {response.ReasonPhrase}");
                 throw new Exception("Request Failed");
             }
 

@@ -76,17 +76,20 @@ namespace SyncCollection
                 string resourceBase = "https://archive.org/compress";
                 WebClient client = new WebClient();
 
+                int count = 0;
+
                 foreach (var indicatorToDownload in searchResults.Keys)
                 {
                     if (!localFileList.ContainsKey(indicatorToDownload) || searchResults[indicatorToDownload] >
                         localFileList[indicatorToDownload])
                     {
+                        count++;
                         currentlyDownloading = $"{collection}/{indicatorToDownload}.zip";
 
                         var url = $"{resourceBase}/{indicatorToDownload}";
 
-                        Console.WriteLine($"Downloading {currentlyDownloading}");
-                        Console.WriteLine($"Downloading from {url}");
+                        Console.WriteLine($"{count}: Downloading {currentlyDownloading}");
+                        Console.WriteLine($"{count}: Downloading from {url}");
 
                         bool success = false;
                         try
@@ -98,7 +101,7 @@ namespace SyncCollection
                         {
                             // Just skip webexceptions and clean up so we can
                             // download as much of the collection as possible
-                            Console.WriteLine($"Error while downloading {e.Message}");
+                            Console.WriteLine($"{count}: Error while downloading {e.Message}");
 
                             // delete failed download
                             if (File.Exists(currentlyDownloading))
@@ -116,7 +119,6 @@ namespace SyncCollection
 
                             UpdateLocalFileList(updatedFileList, collection); //we churn this file a lot so we don't lose much state if process interrupted
                         }
-                        System.Threading.Thread.Sleep(500); //forcing a sleep to be nice to archive.org?
                     }
                 }
             }

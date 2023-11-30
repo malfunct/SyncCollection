@@ -1,10 +1,16 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel.Design;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
@@ -12,11 +18,20 @@ namespace SyncCollection
 {
     class Program
     {
+        [DllImport("Shlwapi.dll", CharSet = CharSet.Auto)]
+        public static extern int StrFormatByteSize(
+            long fileSize,
+            [MarshalAs(UnmanagedType.LPTStr)] StringBuilder buffer,
+            int bufferSize);
+
         const string Collection = "apple_ii_library_4am";
         const string Rows = "30000";
 
         static void Main(string[] args)
         {
+            Console.Title = Assembly.GetExecutingAssembly().GetName().Name;
+            Console.OutputEncoding = Encoding.Default;
+
             string collection = Collection;
             string rows = Rows;
 
@@ -63,7 +78,7 @@ namespace SyncCollection
             }
         }
 
-        private static void DownloadFiles(Dictionary<string, DateTime> searchResults,
+        private  static void DownloadFiles(Dictionary<string, DateTime> searchResults,
             Dictionary<string, DateTime> localFileList, string collection)
         {
             ArchiveOldDownloadList(collection);
@@ -77,6 +92,31 @@ namespace SyncCollection
                 WebClient client = new WebClient();
 
                 int count = 0;
+                int totalCount = searchResults.Keys.Count;
+
+                Stopwatch sw = new Stopwatch();
+                
+                client.DownloadProgressChanged += (sender, e) =>
+                {
+                    long bytesIn = e.BytesReceived;
+                    long totalBytes = e.TotalBytesToReceive;
+                    double downloadSpeed = bytesIn / sw.Elapsed.TotalSeconds;
+
+                    var bytesInBuffer = new System.Text.StringBuilder(20);
+                    var totalBytesBuffer = new System.Text.StringBuilder(20);
+                    var downloadSpeedBuffer = new System.Text.StringBuilder(20);
+
+                    StrFormatByteSize(bytesIn, bytesInBuffer, bytesInBuffer.Capacity);
+                    StrFormatByteSize(totalBytes, totalBytesBuffer, totalBytesBuffer.Capacity);
+                    StrFormatByteSize((long)downloadSpeed, downloadSpeedBuffer, downloadSpeedBuffer.Capacity);
+
+                    Console.Write($"\r[ File {count} of {totalCount} | {bytesInBuffer}/{totalBytesBuffer} ({e.ProgressPercentage}%) | {downloadSpeedBuffer}/s ]");
+                };
+
+                client.DownloadFileCompleted += (sender, e) =>
+                {
+                    sw.Reset();
+                };
 
                 foreach (var indicatorToDownload in searchResults.Keys)
                 {
@@ -88,20 +128,27 @@ namespace SyncCollection
 
                         var url = $"{resourceBase}/{indicatorToDownload}";
 
-                        Console.WriteLine($"{count}: Downloading {currentlyDownloading}");
+                        Console.Write("\r");
+                        Console.WriteLine($"{count}: Downloading file {currentlyDownloading}");
                         Console.WriteLine($"{count}: Downloading from {url}");
 
                         bool success = false;
                         try
                         {
-                            client.DownloadFile(url, currentlyDownloading);
+                            sw.Start();
+                            client.DownloadFileAsync(new Uri(url, UriKind.Absolute), currentlyDownloading);
+                            do
+                            {
+                                Thread.Sleep(300);
+                            } while (client.IsBusy);
+
                             success = true;
                         }
                         catch (WebException e)
                         {
                             // Just skip webexceptions and clean up so we can
                             // download as much of the collection as possible
-                            Console.WriteLine($"{count}: Error while downloading {e.Message}");
+                            Console.WriteLine($"{count}: Error while downloading, {e.Message}");
 
                             // delete failed download
                             if (File.Exists(currentlyDownloading))
@@ -121,10 +168,11 @@ namespace SyncCollection
                         }
                     }
                 }
+                client.Dispose();
             }
             catch (Exception exc)
             {
-                Console.WriteLine($"Error while downloading {exc.Message}");
+                Console.WriteLine($"Error while downloading, {exc.Message}");
             }
             finally
             {
